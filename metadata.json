@@ -1,0 +1,6 @@
+{
+  "name": "Flow Tasks",
+  "description": "Production-ready, local-first personal productivity and task management system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

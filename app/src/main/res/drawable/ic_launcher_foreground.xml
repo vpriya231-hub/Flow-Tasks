@@ -1,0 +1,33 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Flow Tasks Dynamic Check & Wave Symbol -->
+    <path
+        android:pathData="M34,54 L48,68 L74,38"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:angle="45"
+                android:endX="74"
+                android:endY="38"
+                android:startX="34"
+                android:startY="68"
+                android:type="linear">
+                <item android:color="#38BDF8" android:offset="0.0" />
+                <item android:color="#818CF8" android:offset="0.5" />
+                <item android:color="#C084FC" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Modern flowing secondary loop dot -->
+    <path
+        android:pathData="M72,66 A5,5 0 1,1 72.01,66"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeColor="#38BDF8" />
+</vector>
