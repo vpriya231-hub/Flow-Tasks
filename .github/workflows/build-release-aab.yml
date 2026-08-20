@@ -14,36 +14,25 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: '17'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Set up Gradle 9.3.1
+      - name: Install Gradle 9.3.1 directly
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.3.1'
 
-      - name: Ensure Valid Gradle Wrapper
+      - name: Build Release Bundle using system Gradle
         run: |
-          chmod +x ./gradlew 2>/dev/null || true
-          # Test if the existing gradle-wrapper.jar is a valid JAR archive
-          if [ ! -f "gradle/wrapper/gradle-wrapper.jar" ] || ! jar -tf gradle/wrapper/gradle-wrapper.jar > /dev/null 2>&1; then
-            echo "Wrapper JAR missing or corrupted in repository. Regenerating fresh Gradle 9.3.1 wrapper..."
-            gradle wrapper --gradle-version 9.3.1 --distribution-type bin
-            chmod +x ./gradlew
-          else
-            echo "Gradle wrapper JAR is valid."
-          fi
-
-      - name: Build Release Bundle
-        run: |
-          echo "Executing clean release bundle build..."
-          ./gradlew clean :app:bundleRelease --no-daemon --stacktrace || gradle clean :app:bundleRelease --no-daemon --stacktrace
+          echo "Building with direct Gradle CLI (bypassing wrapper JAR)..."
+          gradle --version
+          gradle clean :app:bundleRelease --no-daemon --stacktrace
 
       - name: Verify Generated Release AAB
         run: |
