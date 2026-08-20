@@ -23,15 +23,18 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Gradle 9.3.1 directly
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.3.1'
-
-      - name: Build Release Bundle using system Gradle
+      - name: Install Official Gradle 9.3.1
         run: |
-          echo "Building with direct Gradle CLI (bypassing wrapper JAR)..."
+          echo "Downloading and installing official Gradle 9.3.1 binary distribution..."
+          wget -q https://services.gradle.org/distributions/gradle-9.3.1-bin.zip
+          unzip -q gradle-9.3.1-bin.zip -d /opt
+          echo "/opt/gradle-9.3.1/bin" >> "$GITHUB_PATH"
+          export PATH="/opt/gradle-9.3.1/bin:$PATH"
           gradle --version
+
+      - name: Build Release Bundle
+        run: |
+          echo "Executing clean release bundle build with direct Gradle binary..."
           gradle clean :app:bundleRelease --no-daemon --stacktrace
 
       - name: Verify Generated Release AAB
