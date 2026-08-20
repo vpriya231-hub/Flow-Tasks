@@ -1,0 +1,8 @@
+# Ensure binary files are treated as binary across all git clients
+*.jar binary
+*.keystore binary
+*.aab binary
+*.apk binary
+*.png binary
+*.webp binary
+*.so binary
