@@ -38,6 +38,63 @@ jobs:
           set -e
 
           echo "=========================================="
+          echo "RESTORING KEYSTORE"
+          echo "=========================================="
+
+          mkdir -p "$RUNNER_TEMP/keystore"
+
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode \
+            > "$RUNNER_TEMP/keystore/flow-tasks-upload.jks"
+
+          echo "Keystore file created."
+          echo "Keystore size:"
+          ls -lh "$RUNNER_TEMP/keystore/flow-tasks-upload.jks"
+
+          echo ""
+          echo "Testing keystore..."
+
+          if keytool -list \
+            -keystore "$RUNNER_TEMP/keystore/flow-tasks-upload.jks" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            > "$RUNNER_TEMP/keytool-output.txt" 2>&1
+          then
+            echo "=========================================="
+            echo "KEYSTORE PASSWORD: OK"
+            echo "KEYSTORE FILE: OK"
+            echo "=========================================="
+
+            cat "$RUNNER_TEMP/keytool-output.txt"
+
+          else
+            echo "=========================================="
+            echo "KEYSTORE TEST FAILED"
+            echo "=========================================="
+
+            cat "$RUNNER_TEMP/keytool-output.txt"
+
+            echo ""
+            echo "The keystore itself was restored, but"
+            echo "GitHub could not open it with the stored password."
+
+            exit 1
+          fi
+
+          echo ""
+          echo "Checking alias..."
+
+          keytool -list \
+            -keystore "$RUNNER_TEMP/keystore/flow-tasks-upload.jks" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS"
+
+          echo ""
+          echo "=========================================="
+          echo "KEYSTORE + PASSWORD + ALIAS: OK"
+          echo "=========================================="
+        run: |
+          set -e
+
+          echo "=========================================="
           echo "Restoring release keystore..."
           echo "=========================================="
 
