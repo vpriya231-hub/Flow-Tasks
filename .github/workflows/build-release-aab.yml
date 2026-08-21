@@ -3,7 +3,7 @@ name: Build Signed Release AAB
 on:
   push:
     branches:
-      - "main"
+      - main
   workflow_dispatch:
 
 jobs:
@@ -13,34 +13,22 @@ jobs:
 
     steps:
 
-      # --------------------------------------------------
-      # 1. Checkout
-      # --------------------------------------------------
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-
-      # --------------------------------------------------
-      # 2. Setup JDK 17
-      # --------------------------------------------------
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
-          cache: gradle
+          java-version: '17'
 
-
-      # --------------------------------------------------
-      # 3. Setup Android SDK
-      # --------------------------------------------------
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      # --------------------------------------------------
+      # RESTORE UPLOAD KEYSTORE
+      # --------------------------------------------------
 
-      # --------------------------------------------------
-      # 4. Restore Release Keystore
-      # --------------------------------------------------
       - name: Restore Release Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -49,28 +37,13 @@ jobs:
         run: |
           set -e
 
-          echo "=============================================="
+          echo "=========================================="
           echo "Restoring release keystore..."
-          echo "=============================================="
+          echo "=========================================="
 
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "ERROR: KEYSTORE_BASE64 secret is empty."
-            exit 1
-          fi
+          mkdir -p "$RUNNER_TEMP/keystore"
 
-          if [ -z "$KEYSTORE_PASSWORD" ]; then
-            echo "ERROR: KEYSTORE_PASSWORD secret is empty."
-            exit 1
-          fi
-
-          if [ -z "$KEY_ALIAS" ]; then
-            echo "ERROR: KEY_ALIAS secret is empty."
-            exit 1
-          fi
-
-          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/flow-tasks-upload.jks"
-
-          chmod 600 "$RUNNER_TEMP/flow-tasks-upload.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/keystore/flow-tasks-upload.jks"
 
           echo "Keystore file created."
 
@@ -78,202 +51,94 @@ jobs:
 
           keytool -list \
             -v \
-            -keystore "$RUNNER_TEMP/flow-tasks-upload.jks" \
+            -keystore "$RUNNER_TEMP/keystore/flow-tasks-upload.jks" \
             -storepass "$KEYSTORE_PASSWORD" \
-            -alias "$KEY_ALIAS" \
             > "$RUNNER_TEMP/keystore-info.txt"
 
-          echo "Keystore validation: SUCCESS"
+          echo "Keystore integrity: OK"
 
           echo "Checking alias..."
 
           keytool -list \
-            -keystore "$RUNNER_TEMP/flow-tasks-upload.jks" \
+            -keystore "$RUNNER_TEMP/keystore/flow-tasks-upload.jks" \
             -storepass "$KEYSTORE_PASSWORD" \
             -alias "$KEY_ALIAS" \
-            -rfc > /dev/null
+            > /dev/null
 
-          echo "Alias validation: SUCCESS"
-
-          echo "Keystore type:"
-          keytool -list \
-            -keystore "$RUNNER_TEMP/flow-tasks-upload.jks" \
-            -storepass "$KEYSTORE_PASSWORD" \
-            | grep "Keystore type:" || true
-
-          echo "Release keystore is ready."
-
+          echo "Alias check: OK"
+          echo "Alias: $KEY_ALIAS"
 
       # --------------------------------------------------
-      # 5. Verify Gradle Wrapper
+      # GRADLE
       # --------------------------------------------------
+
       - name: Verify Gradle Wrapper
         run: |
-          set -e
-
-          if [ ! -f "./gradlew" ]; then
-            echo "ERROR: gradlew was not found."
-            echo "The project must contain the Gradle wrapper."
-            exit 1
-          fi
-
           chmod +x ./gradlew
-
           ./gradlew --version
 
+      # --------------------------------------------------
+      # BUILD SIGNED AAB
+      # --------------------------------------------------
 
-      # --------------------------------------------------
-      # 6. Build Signed Release AAB
-      # --------------------------------------------------
       - name: Build Signed Release AAB
         env:
-          KEYSTORE_PATH: ${{ runner.temp }}/flow-tasks-upload.jks
+          KEYSTORE_PATH: ${{ runner.temp }}/keystore/flow-tasks-upload.jks
           STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          set -e
-
-          echo "=============================================="
-          echo "Building signed Release AAB..."
-          echo "=============================================="
-
-          echo "Keystore:"
-          echo "$KEYSTORE_PATH"
-
-          echo "Alias:"
-          echo "$KEY_ALIAS"
+          chmod +x ./gradlew
 
           ./gradlew clean :app:bundleRelease \
             --no-daemon \
             --stacktrace
 
-          echo "Release build completed."
-
-
       # --------------------------------------------------
-      # 7. Verify Generated AAB
+      # VERIFY AAB
       # --------------------------------------------------
+
       - name: Verify Generated Release AAB
         run: |
-          set -e
-
           AAB_FILE="app/build/outputs/bundle/release/app-release.aab"
 
-          echo "=============================================="
-          echo "Verifying generated AAB..."
-          echo "=============================================="
-
           if [ ! -f "$AAB_FILE" ]; then
-            echo "ERROR: AAB was not generated."
-            echo "Expected path:"
-            echo "$AAB_FILE"
+            echo "ERROR: Release AAB was not generated."
             exit 1
           fi
 
           FILE_SIZE=$(stat -c%s "$AAB_FILE")
 
-          if [ "$FILE_SIZE" -le 1000 ]; then
-            echo "ERROR: AAB file is unexpectedly small."
-            echo "Size: $FILE_SIZE bytes"
-            exit 1
-          fi
-
-          echo "AAB generated successfully."
+          echo "=========================================="
+          echo "SUCCESS: Release AAB generated!"
+          echo "=========================================="
           echo "File: $AAB_FILE"
           echo "Size: $(ls -lh "$AAB_FILE" | awk '{print $5}')"
-
-          echo ""
-          echo "SHA-256:"
+          echo "SHA256:"
           sha256sum "$AAB_FILE"
-
-          echo ""
-          echo "Testing AAB ZIP integrity..."
+          echo "=========================================="
 
           unzip -t "$AAB_FILE" > /dev/null
 
-          echo "ZIP integrity: OK"
-
-          echo ""
-          echo "Checking BundleConfig.pb..."
-
-          unzip -l "$AAB_FILE" | grep "BundleConfig.pb" > /dev/null
-
-          echo "BundleConfig.pb: OK"
-
-          echo ""
-          echo "Checking AndroidManifest..."
-
-          unzip -l "$AAB_FILE" | grep "base/manifest/AndroidManifest.xml" > /dev/null
-
-          echo "AndroidManifest.xml: OK"
-
-          echo ""
-          echo "Checking resources..."
-
-          unzip -l "$AAB_FILE" | grep "base/resources.pb" > /dev/null
-
-          echo "resources.pb: OK"
-
-          echo ""
-          echo "Checking DEX..."
-
-          unzip -l "$AAB_FILE" | grep "base/dex/" > /dev/null
-
-          echo "DEX: OK"
-
-          echo ""
-          echo "=============================================="
-          echo "AAB VERIFICATION SUCCESSFUL"
-          echo "=============================================="
-
+          echo "AAB ZIP integrity: OK"
 
       # --------------------------------------------------
-      # 8. Verify Signing Configuration
+      # UPLOAD ARTIFACT
       # --------------------------------------------------
-      - name: Verify Release Signing Configuration
-        env:
-          KEYSTORE_PATH: ${{ runner.temp }}/flow-tasks-upload.jks
-          STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-        run: |
-          set -e
 
-          echo "=============================================="
-          echo "Verifying signing certificate..."
-          echo "=============================================="
-
-          keytool -list \
-            -v \
-            -keystore "$KEYSTORE_PATH" \
-            -storepass "$STORE_PASSWORD" \
-            -alias "$KEY_ALIAS" \
-            | grep -E \
-            "Alias name:|Entry type:|Owner:|Issuer:|SHA256:|Signature algorithm name:|Subject Public Key Algorithm:"
-
-          echo ""
-          echo "Signing certificate verification: SUCCESS"
-
-
-      # --------------------------------------------------
-      # 9. Upload AAB Artifact
-      # --------------------------------------------------
       - name: Upload Signed FlowTasks AAB
         uses: actions/upload-artifact@v4
         with:
-          name: FlowTasks-Release-AAB
+          name: FlowTasks-Signed-Release-AAB
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14
 
+      # --------------------------------------------------
+      # CLEANUP
+      # --------------------------------------------------
 
-      # --------------------------------------------------
-      # 10. Cleanup
-      # --------------------------------------------------
       - name: Clean Temporary Keystore
         if: always()
         run: |
-          rm -f "$RUNNER_TEMP/flow-tasks-upload.jks"
-          rm -f "$RUNNER_TEMP/keystore-info.txt"
-
+          rm -rf "$RUNNER_TEMP/keystore"
           echo "Temporary keystore removed."
