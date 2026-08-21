@@ -36,18 +36,32 @@ android {
    */
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH")
+        val keystorePath = System.getenv("KEYSTORE_PATH")
+        val storePasswordEnv = System.getenv("STORE_PASSWORD")
+        val keyPasswordEnv = System.getenv("KEY_PASSWORD")
+        val keyAliasEnv = System.getenv("KEY_ALIAS")
 
-      if (!keystorePath.isNullOrBlank()) {
-        val keystoreFile = file(keystorePath)
-
-        if (keystoreFile.exists()) {
-          storeFile = keystoreFile
-          storePassword = System.getenv("KEYSTORE_PASSWORD")
-          keyAlias = System.getenv("KEY_ALIAS")
-          keyPassword = System.getenv("KEYSTORE_PASSWORD")
+        if (
+            keystorePath != null &&
+            file(keystorePath).exists() &&
+            storePasswordEnv != null &&
+            keyPasswordEnv != null &&
+            keyAliasEnv != null
+        ) {
+            storeFile = file(keystorePath)
+            storePassword = storePasswordEnv
+            keyAlias = keyAliasEnv
+            keyPassword = keyPasswordEnv
         }
-      }
+    }
+
+    create("debugConfig") {
+        storeFile = file("${rootDir}/debug.keystore")
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
+    }
+}
     }
 
     create("debugConfig") {
