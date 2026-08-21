@@ -25,10 +25,6 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      # --------------------------------------------------
-      # RESTORE UPLOAD KEYSTORE
-      # --------------------------------------------------
-
       - name: Restore Release Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -38,7 +34,7 @@ jobs:
           set -e
 
           echo "=========================================="
-          echo "RESTORING KEYSTORE"
+          echo "RESTORING RELEASE KEYSTORE"
           echo "=========================================="
 
           mkdir -p "$RUNNER_TEMP/keystore"
@@ -50,7 +46,6 @@ jobs:
           echo "Keystore size:"
           ls -lh "$RUNNER_TEMP/keystore/flow-tasks-upload.jks"
 
-          echo ""
           echo "Testing keystore..."
 
           if keytool -list \
@@ -64,7 +59,6 @@ jobs:
             echo "=========================================="
 
             cat "$RUNNER_TEMP/keytool-output.txt"
-
           else
             echo "=========================================="
             echo "KEYSTORE TEST FAILED"
@@ -72,47 +66,8 @@ jobs:
 
             cat "$RUNNER_TEMP/keytool-output.txt"
 
-            echo ""
-            echo "The keystore itself was restored, but"
-            echo "GitHub could not open it with the stored password."
-
             exit 1
           fi
-
-          echo ""
-          echo "Checking alias..."
-
-          keytool -list \
-            -keystore "$RUNNER_TEMP/keystore/flow-tasks-upload.jks" \
-            -storepass "$KEYSTORE_PASSWORD" \
-            -alias "$KEY_ALIAS"
-
-          echo ""
-          echo "=========================================="
-          echo "KEYSTORE + PASSWORD + ALIAS: OK"
-          echo "=========================================="
-        run: |
-          set -e
-
-          echo "=========================================="
-          echo "Restoring release keystore..."
-          echo "=========================================="
-
-          mkdir -p "$RUNNER_TEMP/keystore"
-
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/keystore/flow-tasks-upload.jks"
-
-          echo "Keystore file created."
-
-          echo "Checking keystore integrity..."
-
-          keytool -list \
-            -v \
-            -keystore "$RUNNER_TEMP/keystore/flow-tasks-upload.jks" \
-            -storepass "$KEYSTORE_PASSWORD" \
-            > "$RUNNER_TEMP/keystore-info.txt"
-
-          echo "Keystore integrity: OK"
 
           echo "Checking alias..."
 
@@ -122,21 +77,15 @@ jobs:
             -alias "$KEY_ALIAS" \
             > /dev/null
 
-          echo "Alias check: OK"
+          echo "=========================================="
+          echo "KEYSTORE + PASSWORD + ALIAS: OK"
           echo "Alias: $KEY_ALIAS"
-
-      # --------------------------------------------------
-      # GRADLE
-      # --------------------------------------------------
+          echo "=========================================="
 
       - name: Verify Gradle Wrapper
         run: |
           chmod +x ./gradlew
           ./gradlew --version
-
-      # --------------------------------------------------
-      # BUILD SIGNED AAB
-      # --------------------------------------------------
 
       - name: Build Signed Release AAB
         env:
@@ -149,10 +98,6 @@ jobs:
           ./gradlew clean :app:bundleRelease \
             --no-daemon \
             --stacktrace
-
-      # --------------------------------------------------
-      # VERIFY AAB
-      # --------------------------------------------------
 
       - name: Verify Generated Release AAB
         run: |
@@ -170,17 +115,13 @@ jobs:
           echo "=========================================="
           echo "File: $AAB_FILE"
           echo "Size: $(ls -lh "$AAB_FILE" | awk '{print $5}')"
-          echo "SHA256:"
+          echo "SHA-256:"
           sha256sum "$AAB_FILE"
           echo "=========================================="
 
           unzip -t "$AAB_FILE" > /dev/null
 
           echo "AAB ZIP integrity: OK"
-
-      # --------------------------------------------------
-      # UPLOAD ARTIFACT
-      # --------------------------------------------------
 
       - name: Upload Signed FlowTasks AAB
         uses: actions/upload-artifact@v4
@@ -189,10 +130,6 @@ jobs:
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14
-
-      # --------------------------------------------------
-      # CLEANUP
-      # --------------------------------------------------
 
       - name: Clean Temporary Keystore
         if: always()
